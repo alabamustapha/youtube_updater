@@ -25,7 +25,7 @@
                                         <span class="input-group-addon">
                                             <input type="checkbox" name="subscribe">
                                         </span>
-                                        <input type="number" class="form-control" name="quantity" placeholder="how many">
+                                        <input type="number" class="form-control" name="subscribes_quantity" placeholder="how many">
                                     </div><!-- /input-group -->
                                 </div>
                             </div>
@@ -44,7 +44,7 @@
                                                     <label>Likes ?</label>
                                                     <div class="input-group">
                                                         <span class="input-group-addon">
-                                                            <input type="checkbox" name="like">
+                                                            <input type="checkbox" name="likes">
                                                         </span>
                                                         <input type="number" class="form-control" name="likes_quantity" placeholder="how many">
                                                     </div><!-- /input-group -->
@@ -55,7 +55,7 @@
                                                     <label>Unlikes ?</label>
                                                     <div class="input-group">
                                                         <span class="input-group-addon">
-                                                            <input type="checkbox" name="unlike">
+                                                            <input type="checkbox" name="unlikes">
                                                         </span>
                                                         <input type="number" class="form-control" name="unlikes_quantity" placeholder="how many">
                                                     </div><!-- /input-group -->
@@ -66,9 +66,9 @@
                                                     <label>Comments ?</label>
                                                     <div class="input-group">
                                                         <span class="input-group-addon">
-                                                            <input type="checkbox" name="comment">
+                                                            <input type="checkbox" name="comments">
                                                         </span>
-                                                        <input type="number" class="form-control" name="comment_quantity" placeholder="how many">
+                                                        <input type="number" class="form-control" name="comments_quantity" placeholder="how many">
                                                     </div><!-- /input-group -->
                                                 </div>
                                             </div> 

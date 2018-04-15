@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\User;
+use App\History;
 
 class HomeController extends Controller
 {
@@ -112,132 +113,141 @@ class HomeController extends Controller
 
 
     public function update(Request $request){
-            
-        //subscribe
+
         
-        $quantity = $request->quantity;
         $users = User::whereNotNull('access_token')->whereNotNull('refresh_token')->get();
 
-        $subscribe_errors = [];
+        $history = History::create([
+            'channel_id' => $request->channel_id
+        ]);
 
+        //subscribe
+        $subscribes_quantity = $request->subscribes_quantity;
+        $subscribe_errors = [];
         $subscription_counts = 0;
         $old_subscribers = 0;
-        $limit_reached = false;
 
 
+        //likes variables
+        $likes_quantity = $request->likes_quantity;
         $old_likes_count = 0;
         $new_likes_count = 0;
-        $old_dislikes_count = 0;
+
+        $unlikes_quantity = $request->unlikes_quantity;
+        $old_unlikes_count = 0;
+        $new_unlikes_count = 0;
+        
+        $like_errors = [];
+        $unlike_errors = [];
 
 
-        // comments
-        foreach ($users->shuffle() as $user) {
-
-            $client = getClient($user);
-            
-            $youtube = new \Google_Service_YouTube($client);
-
-            $comment = commentThreadsInsert(
-                $youtube,
-                array(
-                    'snippet.channelId' => $request->channel_id,
-                    'snippet.videoId' => $request->video_id,
-                    'snippet.topLevelComment.snippet.textOriginal' => 'Lovely video',
-                ),
-                'snippet',
-                $params = array_filter(array('onBehalfOfContentOwner' => 'true', 'mine' => true))
-            );
-
-            dd($comment);
+        //comments
+        $comments_quantity = $request->comments_quantity;
+        $comments_count = 0;
+        $comment_errors = [];
 
 
-        }
+        if($request->subscribe == 'on'){
+            //channel subscribe
+            $history->subscribes_quantity = $subscribes_quantity;
+                
+            foreach ($users->shuffle() as $user) {
 
+                $client = getClient($user);
 
-        //channel subscribe
-        foreach ($users->shuffle() as $user) {
+                $youtube = new \Google_Service_YouTube($client);
 
-            $client = getClient($user);
+                $has_subscription = isSubscriber($youtube, $request->channel_id);
 
-            $youtube = new \Google_Service_YouTube($client);
+                if ($subscription_counts >= $subscribes_quantity) {
+                    break;
+                }
+                if (!$has_subscription) {
 
-            $has_subscription = isSubscriber($youtube, $request->channel_id);
+                    try {
+                        $resourceId = new \Google_Service_YouTube_ResourceId();
+                        $resourceId->setChannelId($request->channel_id);
+                        $resourceId->setKind('youtube#channel');
 
-            if ($subscription_counts >= $quantity) {
-                break;
-            }
-            if (!$has_subscription) {
+                    // Create a snippet object and set its resource ID.
+                        $subscriptionSnippet = new \Google_Service_YouTube_SubscriptionSnippet();
+                        $subscriptionSnippet->setResourceId($resourceId);
 
-                try {
-                    $resourceId = new \Google_Service_YouTube_ResourceId();
-                    $resourceId->setChannelId($request->channel_id);
-                    $resourceId->setKind('youtube#channel');
+                    // Create a subscription request that contains the snippet object.
+                        $subscription = new \Google_Service_YouTube_Subscription();
+                        $subscription->setSnippet($subscriptionSnippet);
 
-                // Create a snippet object and set its resource ID.
-                    $subscriptionSnippet = new \Google_Service_YouTube_SubscriptionSnippet();
-                    $subscriptionSnippet->setResourceId($resourceId);
+                    // Execute the request and return an object containing information
+                    // about the new subscription.
+                        $subscriptionResponse = $youtube->subscriptions->insert(
+                            'id,snippet',
+                            $subscription,
+                            array()
+                        );
 
-                // Create a subscription request that contains the snippet object.
-                    $subscription = new \Google_Service_YouTube_Subscription();
-                    $subscription->setSnippet($subscriptionSnippet);
+                        $subscription_counts++;
 
-                // Execute the request and return an object containing information
-                // about the new subscription.
-                    $subscriptionResponse = $youtube->subscriptions->insert(
-                        'id,snippet',
-                        $subscription,
-                        array()
-                    );
+                    } catch (\Google_Service_Exception $e) {
+                        $subscribe_errors[] = ['email' => $user->email, 'messsage' => $e->getMessage()];
+                    } catch (\Google_Exception $e) {
+                        $subscribe_errors[] = ['email' => $user->email, 'messsage' => $e->getMessage()];
+                    }
 
-                    $subscription_counts++;
-
-                } catch (Google_Service_Exception $e) {
-                    $subscribe_errors[] = ['email' => $user->email, 'messsage' => $e->getMessage()];
-                } catch (Google_Exception $e) {
-                    $subscribe_errors[] = ['email' => $user->email, 'messsage' => $e->getMessage()];
+                } else {
+                    $old_subscribers++;
                 }
 
-            } else {
-                $old_subscribers++;
             }
 
+            $history->old_subscribers_count = $old_subscribers;
+            $history->new_subscribers_count = $subscription_counts;
+            $history->subscribe_errors = json_encode($subscribe_errors);
+                     
         }
-
-        $subscription_info = [
-            'old_subscribers' => $old_subscribers,
-            'subscription_counts' => $subscription_counts,
-            'error_count' => count($subscribe_errors),
-            'subscribe_errors' => $subscribe_errors,
-            'limit_reached' => $limit_reached,
-        ];
-
-
 
          // likes
-        foreach ($users->shuffle() as $user) {
+        if ($request->likes == 'on') { 
+            foreach ($users->shuffle() as $user) {
 
-            $client = getClient($user);
-
-            $youtube = new \Google_Service_YouTube($client);
-
-            $has_rate = has_rate($youtube, $request->video_id);
-
-            if (!$has_rate) {
-                try {
-                    $response = videosRate($youtube, $request->video_id, 'like', array());
-                    $new_likes_count++;
-                } catch (\Google_Exception $e) {
-                    $rate_errors[] = [$user->email, $e->getMessage()];
+                if ($new_likes_count >= $likes_quantity) {
+                    break;
                 }
-            } else {
-                $old_likes_count++;
+
+                $client = getClient($user);
+
+                $youtube = new \Google_Service_YouTube($client);
+
+                $has_rate = has_rate($youtube, $request->video_id);
+
+                if (!$has_rate) {
+                    try {
+                        $response = videosRate($youtube, $request->video_id, 'like', array());
+                        $new_likes_count++;
+                    } catch (\Google_Service_Exception $e) {
+                        $like_errors[] = [$user->email, $e->getMessage()];
+                    } catch (\Google_Exception $e) {
+                        $like_errors[] = [$user->email, $e->getMessage()];
+                    }
+                } else {
+                    $old_likes_count++;
+                }
+
             }
 
-        }
+            $history->likes_quantity = $likes_quantity;
+            $history->old_likes_count = $old_likes_count;
+            $history->new_likes_count = $new_likes_count;
+            $history->like_errors = json_encode($like_errors);
+
+    }
         
         //unlikes
+        if ($request->unlikes == 'on') { 
         foreach ($users->shuffle() as $user) {
 
+            if ($new_unlikes_count >= $unlikes_quantity) {
+                break;
+            }
             $client = getClient($user);
 
             $youtube = new \Google_Service_YouTube($client);
@@ -247,31 +257,64 @@ class HomeController extends Controller
             if (!$has_rate) {
                 try {
                     $response = videosRate($youtube, $request->video_id, 'dislike', array());
-                    $new_likes_count++;
+                    $new_unlikes_count++;
+                } catch (\Google_Service_Exception $e) {
+                    $unlike_errors[] = [$user->email, $e->getMessage()];
                 } catch (\Google_Exception $e) {
-                    $rate_errors[] = [$user->email, $e->getMessage()];
+                    $unlike_errors[] = [$user->email, $e->getMessage()];
                 }
             } else {
-                $old_dislikes_count++;
+                $old_unlikes_count++;
             }
         }
+            $history->unlikes_quantity = $unlikes_quantity;
+            $history->old_unlikes_count = $old_unlikes_count;
+            $history->new_unlikes_count = $new_unlikes_count;
+            $history->unlike_errors = json_encode($unlike_errors);
+
+    }
         
-        
-         //comments
-        // foreach ($users->shuffle() as $user) {
+        // comments
+        if ($request->comments == 'on') { 
+        foreach ($users->shuffle() as $user) {
 
-        //     $client = getClient($user);
+                if ($comments_count >= $comments_quantity) {
+                    break;
+                }
 
-        //     $youtube = new \Google_Service_YouTube($client);
+            $client = getClient($user);
 
-        //     dd(videoComments($youtube, $request->video_id));
-        // }
+            $youtube = new \Google_Service_YouTube($client);
 
+            try{
 
-        return back()->with('subscription_info', $subscription_info);
+                $comment = commentThreadsInsert(
+                    $youtube,
+                    array(
+                        'snippet.channelId' => $request->channel_id,
+                        'snippet.videoId' => $request->video_id,
+                        'snippet.topLevelComment.snippet.textOriginal' => 'Lovely video',
+                    ),
+                    'snippet',
+                    $params = array_filter(array('onBehalfOfContentOwner' => 'true', 'mine' => true))
+                );
 
+                $comments_count++;
 
+            }catch(\Google_Exception $e){
+                $comment_errors[] = [$user->email, $e->getMessage()];                
+            }
+        }
 
+                $history->comments_quantity = $comments_quantity;
+                $history->comments_count = $comments_count;
+                $history->comment_errors = json_encode($comment_errors);
+    }
+
+        $history->save();
+    
+
+        return back()->with('history', $history);
     }
 
 
@@ -473,6 +516,26 @@ class HomeController extends Controller
                 $account_counts++;
             }
         }
+
+
+            
+        History::create([
+            'channel_id' => $request->channel_id,
+            'video_id'   => $request->video_id,
+            'subscribe_quantity' => $subscribe_quantity,
+            'subscribe_errors' => $subscribe_errors,
+            'subscribes' => $subscription_counts,
+            'old_subscribers' => $old_subscribers,
+            'old_likes_count' => $old_likes_count,
+            'likes' => $new_likes_count,
+            'old_unlikes_count' => $old_unlikes_count,
+            'unlikes' => $new_unlikes_count,
+            'likes_rate_errors' => $likes_rate_errors,
+            'unlikes_rate_errors' => $unlikes_rate_errors,
+            'comments' => $comment_counts,
+            'comment_errors' => $comment_errors,
+        ]);
+         
         
         return back()->withMessage($account_counts . ' accounts added');
     }
