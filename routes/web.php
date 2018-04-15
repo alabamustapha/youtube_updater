@@ -23,5 +23,6 @@ Route::post('{user}/geta_access_token/', 'HomeController@getAccessToken')->name(
 Route::get('get_access_token/oauth2callback', 'HomeController@oauth2callback')->name('oauth2callback');
 
 Route::post('update', 'HomeController@update')->name('update');
+Route::post('add_accounts', 'HomeController@addAccounts')->name('add_accounts');
 // Route::post('channel/subscribe', 'HomeController@subscribe')->name('subscribe');
 // Route::post('video/rate', 'HomeController@videoRate')->name('video_rate');

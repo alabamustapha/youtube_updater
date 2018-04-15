@@ -451,4 +451,29 @@ class HomeController extends Controller
 
           
     }
+
+    public function addAccounts(Request $request){
+        $accounts = \Excel::load($request->accounts)->all();
+        $account_counts = 0;
+
+        foreach ($accounts as $account) {
+            $email = $account->email;
+            $name = $account->name;
+            $password = explode(' ', $name)[0];
+
+            $user = User::whereEmail($email)->first();
+
+            if(!$user){
+                User::create([
+                    'name' => $name,
+                    'email' => $email,
+                    'password' => bcrypt($name),
+                ]);
+
+                $account_counts++;
+            }
+        }
+        
+        return back()->withMessage($account_counts . ' accounts added');
+    }
 }
