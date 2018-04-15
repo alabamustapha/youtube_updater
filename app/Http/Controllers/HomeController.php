@@ -517,25 +517,6 @@ class HomeController extends Controller
             }
         }
 
-
-            
-        History::create([
-            'channel_id' => $request->channel_id,
-            'video_id'   => $request->video_id,
-            'subscribe_quantity' => $subscribe_quantity,
-            'subscribe_errors' => $subscribe_errors,
-            'subscribes' => $subscription_counts,
-            'old_subscribers' => $old_subscribers,
-            'old_likes_count' => $old_likes_count,
-            'likes' => $new_likes_count,
-            'old_unlikes_count' => $old_unlikes_count,
-            'unlikes' => $new_unlikes_count,
-            'likes_rate_errors' => $likes_rate_errors,
-            'unlikes_rate_errors' => $unlikes_rate_errors,
-            'comments' => $comment_counts,
-            'comment_errors' => $comment_errors,
-        ]);
-         
         
         return back()->withMessage($account_counts . ' accounts added');
     }
